@@ -1,0 +1,26 @@
+name: ContextDock CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements-dev.txt
+      - run: ruff check contextdock tests
+      - run: python -m compileall -q contextdock
+      - run: python -m pytest -q
+      - run: python -m contextdock.evaluate
+      - run: python -m pip_audit
+      - run: docker build -t contextdock:ci .
