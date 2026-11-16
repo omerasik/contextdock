@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ContextDock</title><link rel="stylesheet" href="/style.css"><script type="module" src="/dashboard.js"></script></head>
+<body><header><strong>ContextDock</strong><span id="tenant"></span><button id="logout" hidden>Sign out</button></header>
+<main><h1>Knowledge workspace</h1><p id="notice" role="status"></p>
+<form id="connect" class="card"><label>Tenant token<input name="token" type="password" required autocomplete="off"></label><button>Connect</button><div id="demo" hidden><button type="button" data-user="alice">Demo Alice</button> <button type="button" data-user="bob">Demo Bob</button></div></form>
+<div id="workspace" hidden>
+<div class="grid">
+<form id="ingest" class="card"><h2>Add a document</h2><label>Collection<input name="collection" value="policies" pattern="[a-z0-9][a-z0-9_\-]{0,39}" required></label>
+<label>Title<input name="title" maxlength="120" required></label>
+<label>Text file (optional)<input id="file" type="file" accept=".txt,text/plain"></label>
+<label>Document text<textarea name="text" rows="5" maxlength="18000" required></textarea></label><button>Index document</button></form>
+<section class="card"><h2>Search and sources</h2><form id="search"><label>Question or search terms<input name="query" maxlength="500" required></label>
+<div class="two"><label>Collection (optional)<input name="collection" pattern="[a-z0-9][a-z0-9_\-]{0,39}"></label>
+<label>Minimum score<input type="number" name="threshold" min="0.1" max="1" step="0.05" value="0.2" required></label></div><button>Search</button></form><div id="results"></div><div id="source"></div></section>
+<section class="card"><h2>Collections and documents</h2><div id="documents"></div></section>
+<section class="card"><h2>Memory</h2><form id="remember"><label>Key<input name="name" pattern="[a-z0-9][a-z0-9_\-]{0,39}" required></label><label>Value<textarea name="value" maxlength="2000" required></textarea></label><button>Save memory</button></form><div id="memories"></div></section>
+<section class="card"><h2>Tenant settings</h2><form id="settings"><label>Retention for new documents (days)<input name="retention_days" type="number" min="1" max="365" required></label><button>Save settings</button></form>
+<div id="evaluation" hidden><h3>Retrieval evaluation</h3><button id="evaluate" type="button">Run synthetic evaluation</button><pre id="scores"></pre></div></section>
+<section class="card"><h2>Access history</h2><ol id="audit"></ol></section>
+</div></div></main></body></html>

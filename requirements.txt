@@ -1,0 +1,5 @@
+fastapi==0.163.1
+httpx2==2.16.2
+pydantic==2.14.3
+sqlite-vec==0.1.9
+uvicorn==0.54.0
