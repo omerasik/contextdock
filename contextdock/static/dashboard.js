@@ -108,8 +108,8 @@ el("logout").onclick = () => {
 };
 onSubmit("ingest", async data => {
   const result = await api("documents", "POST", data);
-  el("notice").textContent = result.duplicate ? "This content was already indexed in the collection." : "Indexed " + result.chunks + " chunks.";
   await refresh();
+  el("notice").textContent = result.duplicate ? "This content was already indexed in the collection." : "Indexed " + result.chunks + " chunks.";
 });
 el("file").onchange = () => void action(async () => {
   const file = el("file").files[0];
@@ -122,6 +122,7 @@ el("file").onchange = () => void action(async () => {
 });
 onSubmit("search", async data => {
   const result = await api("search", "POST", { query: data.query, collection: data.collection || null, threshold: Number(data.threshold) });
+  await refresh();
   const results = el("results");
   el("source").replaceChildren();
   results.replaceChildren(node("h3", "Grounded excerpts"));
@@ -134,7 +135,6 @@ onSubmit("search", async data => {
     row.append(node("p", source.title + " · score " + source.score), button("View matching chunk", () => void action(() => showSource(source.document_id, source))));
     results.append(row);
   }
-  await refresh();
 });
 onSubmit("remember", async data => {
   await api("memory/" + data.name, "PUT", { value: data.value, expected: editing?.name === data.name ? editing.version : null });
