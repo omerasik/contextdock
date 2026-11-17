@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from .evaluate import evaluate
+from .generation import GenerationError, Generator, grounded_claims
 from .retrieval import Encoder, LocalEncoder, RemoteEncoder, chunks, excerpts, rank
 from .store import Conflict, Store
 
@@ -49,7 +50,8 @@ class Retention(Input):
     retention_days: Annotated[int, Field(ge=1, le=365)]
 
 
-def create_app(path: Path, tokens: dict[str, str], encoder: Encoder, *, demo: bool = False) -> FastAPI:
+def create_app(path: Path, tokens: dict[str, str], encoder: Encoder, *, demo: bool = False,
+               generator: Generator | None = None) -> FastAPI:
     if not tokens or len(tokens) > 20 or len(set(tokens.values())) != len(tokens) or any(
         not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,39}", name) or len(token) < (1 if demo else 32) or len(token) > 160
         for name, token in tokens.items()
@@ -135,11 +137,33 @@ def create_app(path: Path, tokens: dict[str, str], encoder: Encoder, *, demo: bo
         return {"deleted": True}
 
     @api.post("/search")
-    def search(owner: Scope, body: SearchInput):
-        embedding = encode([body.query])[0]
-        hits = store.search(owner, body.collection, embedding, min(body.limit * 3, 30))
+    async def search(owner: Scope, body: SearchInput):
+        embedding = (await asyncio.to_thread(encode, [body.query]))[0]
+        hits = await asyncio.to_thread(store.search, owner, body.collection, embedding, min(body.limit * 3, 30))
         sources = rank(body.query, hits, body.limit, body.threshold)
-        return {"sources": sources, "answer": excerpts(body.query, sources)}
+        generated = None
+        error = None
+        if generator is not None and sources:
+            candidate = None
+            supplied = {source["chunk_id"] for source in sources[:5]}
+            try:
+                candidate = await generator.generate(body.query, sources)
+            except GenerationError as failure:
+                error = str(failure)
+            active = []
+            for source in sources:
+                current = await asyncio.to_thread(store.source, owner, source["document_id"])
+                if current and current["body"][source["start"]:source["end"]] == source["text"]:
+                    active.append(source)
+            sources = active
+            if candidate is not None:
+                claims = grounded_claims(candidate, [source for source in sources if source["chunk_id"] in supplied])
+                if claims:
+                    generated = {"model": generator.model, "claims": claims}
+                else:
+                    error = "answer_has_no_supported_claims"
+        return {"sources": sources, "answer": excerpts(body.query, sources), "generated": generated,
+                "answer_mode": "generative" if generated else "extractive", "generation_error": error}
 
     @api.get("/memory")
     def memories(owner: Scope):
@@ -195,4 +219,15 @@ def from_env():
         encoder = RemoteEncoder(endpoint, model, key)
     elif provider != "local":
         raise ValueError("Unknown embedding configuration.")
-    return create_app(Path(os.getenv("DATABASE_PATH", "data/context.sqlite")), tokens, encoder, demo=demo)
+    generator = None
+    answer_provider = os.getenv("ANSWER_PROVIDER", "off")
+    if answer_provider == "openai-compatible":
+        endpoint = os.getenv("ANSWER_ENDPOINT", "https://api.openai.com/v1/chat/completions")
+        model, key = os.getenv("ANSWER_MODEL"), os.getenv("ANSWER_API_KEY")
+        parsed = urlparse(endpoint)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or not model or not key:
+            raise ValueError("Configure an HTTPS answer endpoint, model and credential.")
+        generator = Generator(endpoint, model, key)
+    elif answer_provider != "off":
+        raise ValueError("Unknown answer provider.")
+    return create_app(Path(os.getenv("DATABASE_PATH", "data/context.sqlite")), tokens, encoder, demo=demo, generator=generator)

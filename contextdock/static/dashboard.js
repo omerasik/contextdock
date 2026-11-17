@@ -14,6 +14,7 @@ function button(text, handler) {
   const result = node("button", text);
   result.type = "button";
   result.onclick = handler;
+  result.disabled = busy;
   return result;
 }
 
@@ -30,9 +31,14 @@ async function api(route, method = "GET", body) {
 async function action(callback) {
   if (busy) return;
   busy = true;
-  try { el("notice").textContent = ""; await callback(); }
+  for (const control of document.querySelectorAll("button")) control.disabled = true;
+  try { el("notice").textContent = "Working…"; await callback(); }
   catch (error) { el("notice").textContent = error.message; }
-  finally { busy = false; }
+  finally {
+    busy = false;
+    for (const control of document.querySelectorAll("button")) control.disabled = false;
+    if (el("notice").textContent === "Working…") el("notice").textContent = "";
+  }
 }
 
 function onSubmit(id, callback) {
@@ -84,6 +90,14 @@ async function refresh() {
 }
 
 async function connect(value) {
+  el("notice").textContent = "";
+  editing = null;
+  el("workspace").hidden = true;
+  el("connect").hidden = false;
+  el("logout").hidden = true;
+  el("tenant").textContent = "";
+  for (const id of ["results", "source", "documents", "memories", "audit", "scores"]) el(id).replaceChildren();
+  for (const id of ["ingest", "search", "remember", "settings"]) el(id).reset();
   token = value;
   signedIn += 1;
   try { await refresh(); }
@@ -125,7 +139,18 @@ onSubmit("search", async data => {
   await refresh();
   const results = el("results");
   el("source").replaceChildren();
-  results.replaceChildren(node("h3", "Grounded excerpts"));
+  results.replaceChildren();
+  if (result.generated) {
+    results.append(node("h3", "Generated answer"));
+    for (const claim of result.generated.claims) {
+      results.append(node("p", claim.text));
+      for (const citation of claim.citations) {
+        results.append(node("blockquote", citation.quote), button("View generated citation", () => void action(() => showSource(citation.document_id, citation))));
+      }
+    }
+  }
+  if (result.generation_error) results.append(node("p", "Generation unavailable: " + result.generation_error.replaceAll("_", " ") + ". Showing source excerpts."));
+  results.append(node("h3", "Grounded excerpts"));
   if (!result.answer.length) results.append(node("p", "No matching excerpt was found."));
   for (const answer of result.answer) {
     results.append(node("p", answer.quote), button("View cited text", () => void action(() => showSource(answer.document_id, answer))));
@@ -154,5 +179,8 @@ if (config.demo) {
   for (const control of el("demo").querySelectorAll("[data-user]")) {
     control.onclick = () => void action(() => connect("contextdock-demo-" + control.dataset.user));
   }
-  el("evaluate").onclick = () => void action(async () => { el("scores").textContent = JSON.stringify(await api("evaluation"), null, 2); });
+  el("evaluate").onclick = () => void action(async () => {
+    const { results, ...summary } = await api("evaluation");
+    el("scores").textContent = JSON.stringify(summary, null, 2);
+  });
 }

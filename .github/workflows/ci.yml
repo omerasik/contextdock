@@ -24,3 +24,9 @@ jobs:
       - run: python -m contextdock.evaluate
       - run: python -m pip_audit
       - run: docker build -t contextdock:ci .
+      - run: docker run -d --name contextdock-ci -p 127.0.0.1:18030:8000 -e DEMO_MODE=true contextdock:ci
+      - run: python tests/smoke_app.py --url http://127.0.0.1:18030
+      - if: failure()
+        run: docker logs contextdock-ci
+      - if: always()
+        run: docker rm -f contextdock-ci || true
