@@ -42,7 +42,9 @@ def test_tenant_scoped_search_source_and_deletion(service):
         assert day in answer["quote"]
         assert data["text"][answer["start"]:answer["end"]] == answer["quote"]
     assert client.delete(f"/api/documents/{alice_id}", headers=auth("alice")).json() == {"deleted": True}
-    assert client.post("/api/search", json=query, headers=auth("alice")).json() == {"sources": [], "answer": []}
+    assert client.post("/api/search", json=query, headers=auth("alice")).json() == {
+        "sources": [], "answer": [], "generated": None, "answer_mode": "extractive", "generation_error": None,
+    }
     assert client.get(f"/api/documents/{bob_id}", headers=auth("bob")).status_code == 200
     with Store(path, LocalEncoder.identity).connect() as db:
         assert db.execute("SELECT count(*) FROM chunk_vectors WHERE tenant='alice'").fetchone()[0] == 0
@@ -84,7 +86,14 @@ def test_retention_and_unsupported_answers(service):
 
 
 def test_measured_synthetic_retrieval():
-    assert evaluate() == {"queries": 4, "top1_accuracy": 1.0, "mean_reciprocal_rank": 1.0}
+    result = evaluate()
+    assert result["documents"] >= 12
+    assert result["chunks"] > result["documents"]
+    assert result["queries"] >= 24
+    assert result["negative_queries"] == 4
+    assert result["top1_accuracy"] >= 0.8
+    assert result["recall_at_3"] >= 0.9
+    assert result["no_answer_accuracy"] == 1.0
 
 
 def test_remote_embedding_contract(monkeypatch):

@@ -4,7 +4,7 @@ import math
 import re
 import struct
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import httpx2
@@ -75,7 +75,7 @@ class LocalEncoder:
 class RemoteEncoder:
     endpoint: str
     model: str
-    token: str
+    token: str = field(repr=False)
 
     @property
     def identity(self):
