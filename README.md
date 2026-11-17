@@ -52,3 +52,7 @@ python -m pip_audit
 The evaluator uses 12 authored synthetic policy documents, including long documents split into 14 chunks, with 24 known-source queries and four unrelated negative queries. It reports document-level top-one accuracy, recall at three, mean reciprocal rank, no-answer accuracy and per-query source ranks against a temporary real SQLite vector index. This is a reproducible regression fixture, not a real-world retrieval benchmark. The API tests verify two-user isolation, citations, expiry, source/vector deletion, stale memory writes, remote embedding contracts and generated citation checks, including deletion during generation.
 
 With a running local demo, `python tests/smoke_app.py --url http://127.0.0.1:8000` verifies actual vector search for Alice and Bob, private memory updates, cross-tenant source denial and deletion. CI repeats this flow in the built Docker image. The browser demonstration also checks tenant switching, cited text, memory correction, deletion, the evaluation panel and mobile layout.
+
+## License
+
+Original project code is licensed under MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
